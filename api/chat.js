@@ -52,7 +52,9 @@ export default async function handler(req, res) {
     if (!upstream.ok) {
       const errText = await upstream.text();
       console.error('OpenAI error:', upstream.status, errText);
-      return res.status(502).json({ error: 'Upstream chat provider error' });
+      // TEMP DEBUG: returning the real error so we can see it in the browser network tab.
+      // Remove the "debug" field once things are working!
+      return res.status(502).json({ error: 'Upstream chat provider error', debug: { status: upstream.status, body: errText } });
     }
 
     const data = await upstream.json();
