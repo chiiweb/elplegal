@@ -1,12 +1,14 @@
 // api/chat.js
-// Vercel serverless function — proxies chat messages to OpenRouter.
-// Keeps your OPENROUTER_API_KEY secret on the server; never expose it in the browser.
+// Vercel serverless function — proxies chat messages directly to OpenAI.
+// Keeps your OPENAI_API_KEY secret on the server; never expose it in the browser.
 //
-// Deploy: place this file at /api/chat.js in your Vercel project (this exact path).
+// Deploy: place this file at /api/chat.js in your Vercel project (this exact path,
+// inside a folder literally named "api" at your project root).
+//
 // Set an environment variable in the Vercel dashboard:
-//   OPENROUTER_API_KEY = sk-or-...          (Project Settings -> Environment Variables)
+//   OPENAI_API_KEY = sk-...             (Project Settings -> Environment Variables)
 // Optional:
-//   OPENROUTER_MODEL   = openai/gpt-4o-mini  (or any OpenRouter model slug you prefer)
+//   OPENAI_MODEL    = gpt-4o-mini        (or gpt-4o, gpt-4.1-mini, etc.)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,9 +16,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'Server is missing OPENROUTER_API_KEY' });
+    return res.status(500).json({ error: 'Server is missing OPENAI_API_KEY' });
   }
 
   const { messages } = req.body || {};
@@ -30,18 +32,14 @@ export default async function handler(req, res) {
     content: String(m.content || '').slice(0, 4000),
   }));
 
-  const model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
   try {
-    const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
-        // OpenRouter asks for these so your app shows up correctly in their dashboard.
-        // Replace with your real deployed domain and site name.
-        'HTTP-Referer': process.env.SITE_URL || 'https://elplegal.com',
-        'X-Title': 'El Plegal Advocates AI Assistant',
       },
       body: JSON.stringify({
         model,
@@ -53,10 +51,8 @@ export default async function handler(req, res) {
 
     if (!upstream.ok) {
       const errText = await upstream.text();
-      console.error('OpenRouter error:', upstream.status, errText);
-      // TEMP DEBUG: returning the real error so we can see it in the browser network tab.
-      // Remove the "debug" field once things are working!
-      return res.status(502).json({ error: 'Upstream chat provider error', debug: { status: upstream.status, body: errText } });
+      console.error('OpenAI error:', upstream.status, errText);
+      return res.status(502).json({ error: 'Upstream chat provider error' });
     }
 
     const data = await upstream.json();
